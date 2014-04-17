@@ -52,19 +52,38 @@
 ///////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark - Caret Scrolling
 
+- (UIScrollView *)hostScrollView {
+	UIView *view = self;
+	while (view) {
+		if ([view isKindOfClass:[UIScrollView class]]) {
+			UIScrollView *scrollView = (UIScrollView *)view;
+            BOOL scrollable = (scrollView.scrollEnabled && scrollView.contentSize.height + scrollView.contentInset.top + scrollView.contentInset.bottom > scrollView.bounds.size.height);
+			if (scrollable) {
+				return scrollView;
+			}
+		}
+		view = view.superview;
+	}
+	return nil;
+}
+
 - (void)scrollRectToVisibleConsideringInsets:(CGRect)rect animated:(BOOL)animated {
     if (PSPDFRequiresTextViewWorkarounds()) {
+		UIScrollView *hostScrollView = [self hostScrollView];
+		
+		CGRect visibleRect = UIEdgeInsetsInsetRect(hostScrollView.bounds, hostScrollView.contentInset);
+		rect = [hostScrollView convertRect:rect fromView:self];
+        
         // Don't scroll if rect is currently visible.
-        CGRect visibleRect = UIEdgeInsetsInsetRect(self.bounds, self.contentInset);
         if (!CGRectContainsRect(visibleRect, rect)) {
             // Calculate new content offset.
-            CGPoint contentOffset = self.contentOffset;
+            CGPoint contentOffset = hostScrollView.contentOffset;
             if (CGRectGetMinY(rect) < CGRectGetMinY(visibleRect)) { // scroll up
-                contentOffset.y = CGRectGetMinY(rect) - self.contentInset.top;
+                contentOffset.y = CGRectGetMinY(rect) - hostScrollView.contentInset.top;
             }else { // scroll down
-                contentOffset.y = CGRectGetMaxY(rect) + self.contentInset.bottom - CGRectGetHeight(self.bounds);
+                contentOffset.y = CGRectGetMaxY(rect) + hostScrollView.contentInset.bottom - CGRectGetHeight(hostScrollView.bounds);
             }
-            [self setContentOffset:contentOffset animated:animated];
+            [hostScrollView setContentOffset:contentOffset animated:animated];
         }
     }
     else {
@@ -111,7 +130,18 @@
 }
 
 - (void)scrollToVisibleCaret {
-    [self scrollToVisibleCaretAnimated:NO];
+    [self scrollToVisibleCaretAnimated:YES];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark - UIResponder
+
+- (BOOL)becomeFirstResponder {
+    BOOL didBecome = [super becomeFirstResponder];
+    if (didBecome) {
+        [self scheduleScrollToVisibleCaretWithDelay:0.1];
+    }
+    return didBecome;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -124,7 +154,7 @@
     }
 
     // Ensure caret stays visible when we change the caret position (e.g. via keyboard)
-    [self scrollToVisibleCaretAnimated:YES];
+    [self scheduleScrollToVisibleCaretWithDelay:0.1];
 }
 
 - (void)textViewDidChange:(UITextView *)textView {
@@ -134,7 +164,7 @@
     }
 
     // Ensure we scroll to the caret position when changing text (e.g. pasting)
-    [self scrollToVisibleCaretAnimated:NO];
+    [self scheduleScrollToVisibleCaretWithDelay:0.1];
 }
 
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
