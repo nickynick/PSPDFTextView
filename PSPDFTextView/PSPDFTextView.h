@@ -16,4 +16,8 @@
 // Scroll to visible range, considering insets.
 - (void)scrollRangeToVisibleConsideringInsets:(NSRange)range animated:(BOOL)animated;
 
+
+// Override this method to customize "scroll to visible" behaviour.
+- (CGRect)rectForScrollingToVisibleWithProposedRect:(CGRect)proposedRect;
+
 @end

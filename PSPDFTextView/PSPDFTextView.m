@@ -67,11 +67,17 @@
 	return nil;
 }
 
+- (CGRect)rectForScrollingToVisibleWithProposedRect:(CGRect)proposedRect {
+    return proposedRect;
+}
+
 - (void)scrollRectToVisibleConsideringInsets:(CGRect)rect animated:(BOOL)animated {
     if (PSPDFRequiresTextViewWorkarounds()) {
 		UIScrollView *hostScrollView = [self hostScrollView];
 		
 		CGRect visibleRect = UIEdgeInsetsInsetRect(hostScrollView.bounds, hostScrollView.contentInset);
+        
+        rect = [self rectForScrollingToVisibleWithProposedRect:rect];
 		rect = [hostScrollView convertRect:rect fromView:self];
         
         // Don't scroll if rect is currently visible.
@@ -154,7 +160,9 @@
     }
 
     // Ensure caret stays visible when we change the caret position (e.g. via keyboard)
-    [self scheduleScrollToVisibleCaretWithDelay:0.1];
+    if ([self isFirstResponder]) {
+        [self scheduleScrollToVisibleCaretWithDelay:0.1];
+    }
 }
 
 - (void)textViewDidChange:(UITextView *)textView {
